@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tasktile}
+      POSTGRES_USER: ${POSTGRES_USER:-tasktile}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tasktile} -d ${POSTGRES_DB:-tasktile}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: Host=db;Port=5432;Database=${POSTGRES_DB:-tasktile};Username=${POSTGRES_USER:-tasktile};Password=${POSTGRES_PASSWORD}
+      Auth__Authority: ${AUTH_AUTHORITY}
+      Auth__Audience: ${AUTH_AUDIENCE}
+    ports:
+      - "127.0.0.1:8080:8080"   # chỉ mở nội bộ, đặt Nginx/Caddy phía trước để có HTTPS
+
+volumes:
+  pgdata:
